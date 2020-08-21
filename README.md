@@ -1,4 +1,4 @@
-# My second versin of the Pokedex Frontend Challenge.
+# My second version of the Pokedex Frontend Challenge.
 
 ## List of different changes:
 
@@ -10,4 +10,4 @@
 
 ### 4. Used React-Query for fetching and storing data from the api.
 
-### 5. Used the colors listed on Riley's project.
+### 5. Used better colors
