@@ -1,9 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { useQuery } from "react-query";
 
 import { Input, Grid, Box, Icon, Skeleton, Spinner } from "@chakra-ui/core";
 import { ButtonNav, Link } from "./Styles";
 import PokemonCard from "../PokemonCard/index";
+import debounce from "lodash.debounce";
+
+const LoadingState = () => (
+  <div className="">
+    <div>
+      <Box textAlign="center" fontSize="50px" mt="60px">
+        Loading... <Spinner />
+      </Box>
+      <Skeleton height="50px" my="10px" mx="10%" />
+      <Skeleton height="50px" my="10px" mx="10%" />
+      <Skeleton height="50px" my="10px" mx="10%" />
+    </div>
+  </div>
+);
+
+const FailedState = () => <div className="">error </div>;
 
 /**Fetch and return the data from https://intern-pokedex.myriadapps.com/api/v1/pokemon/?page=${page}&name=${queryString}*/
 const fetchData = async (key, page, queryString) => {
@@ -28,11 +44,19 @@ export default function PokemonList({ history, match }) {
   const [queryString, setQueryString] = useState(
     !match.params.query ? "" : match.params.query
   );
+  const [queryString2, setQueryString2] = useState(
+    !match.params.query ? "" : match.params.query
+  );
   //Use the useQuery supported by react-query to fetch and cache the data.
   const { status, data, error, refetch } = useQuery(
-    ["fetchData", page, queryString],
+    ["fetchData", page, queryString2],
     fetchData,
     {}
+  );
+
+  const debouncedSearch = useCallback(
+    debounce((value) => handleChange2(value), 300),
+    []
   );
 
   /**get the value in the input box and puts it into the queryString state, while pushing to the page with that querystring
@@ -42,21 +66,13 @@ export default function PokemonList({ history, match }) {
     history.push(`/page/1/${e.target.value}`);
     setPage(1);
     setQueryString(e.target.value);
-    setTimeout(() => {
-      refetch();
-    }, 200);
+    debouncedSearch(e.target.value);
   };
 
-  // if handleChange with the setTimeout doesn't work out, I can use a search button to refetch.
-  //   const submit = (e) => {
-  //     e.preventDefault();
-  //     if (queryString.length === 0) {
-  //       history.push(`/page/${page}/${queryString}`);
-  //     } else {
-  //       history.push(`/page/1/${queryString}`);
-  //     }
-  //     refetch();
-  //   };
+  const handleChange2 = (value) => {
+    setQueryString2(value);
+  };
+
   /**Go back one page, the current page and the url are synced up*/
   const back = () => {
     history.push(`/page/${page - 1}/${queryString}`);
@@ -67,24 +83,6 @@ export default function PokemonList({ history, match }) {
     history.push(`/page/${page + 1}/${queryString}`);
     setPage(data.meta.current_page + 1);
   };
-
-  //if loading return Loading with a spinner and skeleton
-  if (status === "loading") {
-    return (
-      <div className="">
-        <div>
-          <Box textAlign="center" fontSize="50px" mt="60px">
-            Loading... <Spinner />
-          </Box>
-          <Skeleton height="50px" my="10px" mx="10%" />
-          <Skeleton height="50px" my="10px" mx="10%" />
-          <Skeleton height="50px" my="10px" mx="10%" />
-        </div>
-      </div>
-    );
-  }
-  //if error return the error
-  if (status === "error") return <div className="">error {error}</div>;
 
   //if neither loading, error, or no pokemon, return the pokemonList
   return (
@@ -106,7 +104,7 @@ export default function PokemonList({ history, match }) {
               <Input
                 className="myInput"
                 bg="#519F95"
-                px="1px"
+                px="20px"
                 py="10px"
                 mt="30px"
                 placeholder="Pok&eacute;dex"
@@ -116,35 +114,40 @@ export default function PokemonList({ history, match }) {
                 onChange={handleChange}
                 value={queryString}
               ></Input>
-              {/* If refetch on handle change doesn't work, I can always use a search button */}
-              {/* <button type="submit">search</button> */}
             </form>
           </Box>
           <Box>
             {/* Show the forward button if the current page is not equal to the last page */}
-            {page !== data.meta.last_page && (
+            {data && page !== data.meta.last_page && (
               <ButtonNav onClick={() => forward()}>
                 <Icon name="arrow-forward" />
               </ButtonNav>
             )}
           </Box>
         </Grid>
-        <Box mx="20px" py="20px">
-          {/* Show cards using a grid with auto-fit and minmax for responsiveness*/}
-          <Grid templateColumns="repeat(auto-fit, minmax(200px, 1fr))" gap={6}>
-            {/* Map through the pokemon data and show each pokemon on a PokemonCard Component */}
-            {data.data.length === 0 ? (
-              <NoPokemon />
-            ) : (
-              data.data.map((pokemon) => (
-                // Link here is a custom styled component
-                <Link key={pokemon.id} href={`/detail/${pokemon.id}`}>
-                  <PokemonCard pokemon={pokemon} />
-                </Link>
-              ))
-            )}
-          </Grid>
-        </Box>
+        {status === "loading" && <LoadingState />}
+        {status === "error" && <FailedState />}
+        {status === "success" && !error && (
+          <Box mx="20px" py="20px">
+            {/* Show cards using a grid with auto-fit and minmax for responsiveness*/}
+            <Grid
+              templateColumns="repeat(auto-fit, minmax(200px, 1fr))"
+              gap={6}
+            >
+              {/* Map through the pokemon data and show each pokemon on a PokemonCard Component */}
+              {data.data.length === 0 ? (
+                <NoPokemon />
+              ) : (
+                data.data.map((pokemon) => (
+                  // Link here is a custom styled component
+                  <Link key={pokemon.id} href={`/detail/${pokemon.id}`}>
+                    <PokemonCard pokemon={pokemon} />
+                  </Link>
+                ))
+              )}
+            </Grid>
+          </Box>
+        )}
       </Box>
     </>
   );
